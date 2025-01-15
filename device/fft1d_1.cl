@@ -160,7 +160,7 @@ kernel void fetch (global float2 * restrict src) {
 
   #pragma unroll
   for (uint k = 0; k < POINTS_1; k++) {
-    buf_1[local_addr + k] = src[global_addr + k];
+    buf_1[local_addr_1 + k] = src[global_addr + k];
   }
 
   barrier (CLK_LOCAL_MEM_FENCE);
@@ -168,7 +168,7 @@ kernel void fetch (global float2 * restrict src) {
   #pragma unroll
   for (uint k = 0; k < POINTS_1; k++) {
     uint buf_addr = bit_reversed_1(k,3) * CONT_FACTOR_1 * POINTS_1 + lid;
-    write_channel_intel (chanin[k], buf_1[buf_addr]);
+    write_channel_intel (chanin_1[k], buf_1[buf_addr]);
   }
 }
 
@@ -216,14 +216,14 @@ kernel void fft1d_1(global float2 * restrict dest,
     float2x8_1 data;
     // Perform memory transfers only when reading data in range
     if (i < count * (N / 8)) {
-      data.i0 = read_channel_intel(chanin[0]);
-      data.i1 = read_channel_intel(chanin[1]);
-      data.i2 = read_channel_intel(chanin[2]);
-      data.i3 = read_channel_intel(chanin[3]);
-      data.i4 = read_channel_intel(chanin[4]);
-      data.i5 = read_channel_intel(chanin[5]);
-      data.i6 = read_channel_intel(chanin[6]);
-      data.i7 = read_channel_intel(chanin[7]);
+      data.i0 = read_channel_intel(chanin_1[0]);
+      data.i1 = read_channel_intel(chanin_1[1]);
+      data.i2 = read_channel_intel(chanin_1[2]);
+      data.i3 = read_channel_intel(chanin_1[3]);
+      data.i4 = read_channel_intel(chanin_1[4]);
+      data.i5 = read_channel_intel(chanin_1[5]);
+      data.i6 = read_channel_intel(chanin_1[6]);
+      data.i7 = read_channel_intel(chanin_1[7]);
     } else {
       data.i0 = data.i1 = data.i2 = data.i3 = 
                 data.i4 = data.i5 = data.i6 = data.i7 = 0;
