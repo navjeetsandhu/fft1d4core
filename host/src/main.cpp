@@ -88,6 +88,10 @@ static cl_command_queue queue = NULL;
 static cl_command_queue queue1 = NULL;
 static cl_kernel kernel = NULL;
 static cl_kernel kernel1 = NULL;
+static cl_command_queue queue_1 = NULL;
+static cl_command_queue queue1_1 = NULL;
+static cl_kernel kernel_1 = NULL;
+static cl_kernel kernel1_1 = NULL;
 static cl_program program = NULL;
 static cl_int status = 0;
 static timing_data td;
@@ -116,11 +120,11 @@ static void fourier_stage(int lognr_points, double2 * data);
 
 
 // Host memory buffers
-float2 *h_inData, *h_outData;
+float2 *h_inData, *h_outData. *h_inData_1, *h_outData_1;
 double2 *h_verify;
 
 // Device memory buffers
-cl_mem d_inData, d_outData;
+cl_mem d_inData, d_outData, d_inData_1, d_outData_1;
 
 // Entry point.
 int main(int argc, char **argv) {
@@ -154,8 +158,10 @@ int main(int argc, char **argv) {
 
   h_inData = (float2 *)alignedMalloc(sizeof(float2) * N * iterations);
   h_outData = (float2 *)alignedMalloc(sizeof(float2) * N * iterations);
+  h_inData_1 = (float2 *)alignedMalloc(sizeof(float2) * N * iterations);
+  h_outData_1 = (float2 *)alignedMalloc(sizeof(float2) * N * iterations);
   h_verify = (double2 *)alignedMalloc(sizeof(double2) * N * iterations);
-  if (!(h_inData && h_outData && h_verify)) {
+  if (!(h_inData && h_outData && h_verify && h_inData_1 && h_outData_1)) {
     printf("ERROR: Couldn't create host buffers\n");
     return false;
   }
@@ -205,12 +211,22 @@ void test_fft(int iterations, bool inverse) {
  
   d_inData = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float2) * N * iterations, NULL, &status);
   checkError(status, "Failed to allocate input device buffer\n");
+
+  d_inData_1 = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float2) * N * iterations, NULL, &status);
+  checkError(status, "Failed to allocate input device buffer 1\n");
+
   d_outData = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_CHANNEL_2_INTELFPGA, sizeof(float2) * N * iterations, NULL, &status);
   checkError(status, "Failed to allocate output device buffer\n");
+
+  d_outData_1 = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_CHANNEL_2_INTELFPGA, sizeof(float2) * N * iterations, NULL, &status);
+  checkError(status, "Failed to allocate output device buffer 1\n");
 
   // Copy data from host to device
 
   status = clEnqueueWriteBuffer(queue1, d_inData, CL_TRUE, 0, sizeof(float2) * N * iterations, h_inData, 0, NULL, NULL);
+  checkError(status, "Failed to copy data to device");
+
+  status = clEnqueueWriteBuffer(queue1_1, d_inData_1, CL_TRUE, 0, sizeof(float2) * N * iterations, h_inData, 0, NULL, NULL);
   checkError(status, "Failed to copy data to device");
 
   // Can't pass bool to device, so convert it to int
@@ -220,14 +236,27 @@ void test_fft(int iterations, bool inverse) {
 
   status = clSetKernelArg(kernel1, 0, sizeof(cl_mem), (void *)&d_inData);
   checkError(status, "Failed to set kernel1 arg 0");
-  
-  status = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&d_outData);
 
+  status = clSetKernelArg(kernel1_1, 0, sizeof(cl_mem), (void *)&d_inData_1);
+  checkError(status, "Failed to set kernel1_1 arg 0");
+
+  status = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&d_outData);
   checkError(status, "Failed to set kernel arg 0");
+
+  status = clSetKernelArg(kernel_1, 0, sizeof(cl_mem), (void *)&d_outData_1);
+  checkError(status, "Failed to set kernel_1 arg 0");
+
   status = clSetKernelArg(kernel, 1, sizeof(cl_int), (void*)&iterations);
   checkError(status, "Failed to set kernel arg 1");
+
+  status = clSetKernelArg(kernel_1, 1, sizeof(cl_int), (void*)&iterations);
+  checkError(status, "Failed to set kernel_1 arg 1")
+
   status = clSetKernelArg(kernel, 2, sizeof(cl_int), (void*)&inverse_int);
   checkError(status, "Failed to set kernel arg 2");
+
+  status = clSetKernelArg(kernel_1, 2, sizeof(cl_int), (void*)&inverse_int);
+  checkError(status, "Failed to set kernel_1 arg 2");
 
   printf(inverse ? "\tInverse FFT" : "\tFFT");
   printf(" kernel initialization is complete.\n");
@@ -241,22 +270,37 @@ void test_fft(int iterations, bool inverse) {
   status = clEnqueueTask(queue, kernel, 0, NULL, NULL);
   checkError(status, "Failed to launch kernel");
 
+  status = clEnqueueTask(queue_1, kernel_1, 0, NULL, NULL);
+  checkError(status, "Failed to launch kernel");
+
   size_t ls = N/8;
   size_t gs = iterations * ls;
   status = clEnqueueNDRangeKernel(queue1, kernel1, 1, NULL, &gs, &ls, 0, NULL, NULL);
   checkError(status, "Failed to launch fetch kernel");
-  
+
+  status = clEnqueueNDRangeKernel(queue1_1, kernel1_1, 1, NULL, &gs, &ls, 0, NULL, NULL);
+  checkError(status, "Failed to launch fetch kernel1_1");
+
   // Wait for command queue to complete pending events
   status = clFinish(queue);
   checkError(status, "Failed to finish");
   status = clFinish(queue1);
   checkError(status, "Failed to finish queue1");
-  
+
+  status = clFinish(queue_1);
+  checkError(status, "Failed to finish");
+  status = clFinish(queue1_1);
+  checkError(status, "Failed to finish queue1");
+
+
   // Record execution time
   td.end_fft = getCurrentTimestamp();
 
   // Copy results from device to host
   status = clEnqueueReadBuffer(queue, d_outData, CL_TRUE, 0, sizeof(float2) * N * iterations, h_outData, 0, NULL, NULL);
+  checkError(status, "Failed to copy data from device");
+
+  status = clEnqueueReadBuffer(queue_1, d_outData_1, CL_TRUE, 0, sizeof(float2) * N * iterations, h_outData, 0, NULL, NULL);
   checkError(status, "Failed to copy data from device");
 
   double time = td.start_fft - td.end_fft;
@@ -415,6 +459,12 @@ bool init() {
   checkError(status, "Failed to create kernel");
 
   kernel1 = clCreateKernel(program, "fetch", &status);
+  checkError(status, "Failed to create fetch kernel");
+
+  kernel_1 = clCreateKernel(program, "fft1d_1", &status);
+  checkError(status, "Failed to create kernel");
+
+  kernel1_1 = clCreateKernel(program, "fetch_1", &status);
   checkError(status, "Failed to create fetch kernel");
 
   td.end_init = getCurrentTimestamp();
