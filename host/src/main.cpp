@@ -120,9 +120,7 @@ float2 *h_inData, *h_outData;
 double2 *h_verify;
 
 // Device memory buffers
-#if USE_SVM_API == 0
 cl_mem d_inData, d_outData;
-#endif /* USE_SVM_API == 0 */
 
 // Entry point.
 int main(int argc, char **argv) {
@@ -153,13 +151,9 @@ int main(int argc, char **argv) {
   }
 
   // Allocate host memory
-#if USE_SVM_API == 0
+
   h_inData = (float2 *)alignedMalloc(sizeof(float2) * N * iterations);
   h_outData = (float2 *)alignedMalloc(sizeof(float2) * N * iterations);
-#else
-  h_inData = (float2 *)clSVMAlloc(context, CL_MEM_READ_WRITE, sizeof(float2) * N * iterations, 0);
-  h_outData = (float2 *)clSVMAlloc(context, CL_MEM_READ_WRITE, sizeof(float2) * N * iterations, 0);
-#endif /* USE_SVM_API == 0 */
   h_verify = (double2 *)alignedMalloc(sizeof(double2) * N * iterations);
   if (!(h_inData && h_outData && h_verify)) {
     printf("ERROR: Couldn't create host buffers\n");
@@ -198,12 +192,6 @@ void test_fft(int iterations, bool inverse) {
 
   td.start_fft_setup = getCurrentTimestamp();
 
-#if USE_SVM_API == 1
-  status = clEnqueueSVMMap(queue, CL_TRUE, CL_MAP_WRITE,
-      (void *)h_inData, sizeof(float2) * N * iterations, 0, NULL, NULL);
-  checkError(status, "Failed to map input data");
-#endif /* USE_SVM_API == 1 */
-
   // Initialize input and produce verification data
   for (int i = 0; i < iterations; i++) {
     for (int j = 0; j < N; j++) {
@@ -212,10 +200,6 @@ void test_fft(int iterations, bool inverse) {
     }
   }
 
-#if USE_SVM_API == 1
-  status = clEnqueueSVMUnmap(queue, (void *)h_inData, 0, NULL, NULL);
-  checkError(status, "Failed to unmap input data");
-#else
   // Create device buffers - assign the buffers in different banks for more efficient
   // memory access 
  
@@ -228,23 +212,17 @@ void test_fft(int iterations, bool inverse) {
 
   status = clEnqueueWriteBuffer(queue1, d_inData, CL_TRUE, 0, sizeof(float2) * N * iterations, h_inData, 0, NULL, NULL);
   checkError(status, "Failed to copy data to device");
-#endif /* USE_SVM_API == 1 */
 
   // Can't pass bool to device, so convert it to int
   int inverse_int = inverse;
 
   // Set the kernel arguments
-#if USE_SVM_API == 0
+
   status = clSetKernelArg(kernel1, 0, sizeof(cl_mem), (void *)&d_inData);
   checkError(status, "Failed to set kernel1 arg 0");
   
   status = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&d_outData);
-#else
-  status = clSetKernelArgSVMPointer(kernel1, 0, (void *)h_inData);
-  checkError(status, "Failed to set kernel1 arg 0");
 
-  status = clSetKernelArgSVMPointer(kernel, 0, (void *)h_outData);
-#endif /* USE_SVM_API == 0 */
   checkError(status, "Failed to set kernel arg 0");
   status = clSetKernelArg(kernel, 1, sizeof(cl_int), (void*)&iterations);
   checkError(status, "Failed to set kernel arg 1");
@@ -277,15 +255,9 @@ void test_fft(int iterations, bool inverse) {
   // Record execution time
   td.end_fft = getCurrentTimestamp();
 
-#if USE_SVM_API == 0
   // Copy results from device to host
   status = clEnqueueReadBuffer(queue, d_outData, CL_TRUE, 0, sizeof(float2) * N * iterations, h_outData, 0, NULL, NULL);
   checkError(status, "Failed to copy data from device");
-#else
-  status = clEnqueueSVMMap(queue, CL_TRUE, CL_MAP_READ,
-      (void *)h_outData, sizeof(float2) * N * iterations, 0, NULL, NULL);
-  checkError(status, "Failed to map out data");
-#endif /* USE_SVM_API == 0 */
 
   double time = td.start_fft - td.end_fft;
   //printf("\tProcessing time = %.4fms\n", (float)((time) * 1E3));
@@ -316,10 +288,6 @@ void test_fft(int iterations, bool inverse) {
   }
   td.end_verify = getCurrentTimestamp();
 
-#if USE_SVM_API == 1
-  status = clEnqueueSVMUnmap(queue, (void *)h_outData, 0, NULL, NULL);
-  checkError(status, "Failed to unmap out data");
-#endif /* USE_SVM_API == 1 */
   printf("\tSignal to noise ratio on output sample: %f --> %s\n\n", fpga_snr, fpga_snr > 125 ? "PASSED" : "FAILED");
 }
 
@@ -449,25 +417,6 @@ bool init() {
   kernel1 = clCreateKernel(program, "fetch", &status);
   checkError(status, "Failed to create fetch kernel");
 
-#if USE_SVM_API == 1
-  cl_device_svm_capabilities caps = 0;
-
-  status = clGetDeviceInfo(
-    device,
-    CL_DEVICE_SVM_CAPABILITIES,
-    sizeof(cl_device_svm_capabilities),
-    &caps,
-    0
-  );
-  checkError(status, "Failed to get device info");
-
-  if (!(caps & CL_DEVICE_SVM_COARSE_GRAIN_BUFFER)) {
-    printf("The host was compiled with USE_SVM_API, however the device currently being targeted does not support SVM.\n");
-    // Free the resources allocated
-    cleanup();
-    return false;
-  }
-#endif /* USE_SVM_API == 1 */
   td.end_init = getCurrentTimestamp();
 
   return true;
@@ -487,7 +436,7 @@ void cleanup() {
     clReleaseCommandQueue(queue1);
   if (h_verify)
 	alignedFree(h_verify);
-#if USE_SVM_API == 0
+
   if(h_inData)
 	alignedFree(h_inData);
   if (h_outData)
@@ -496,12 +445,7 @@ void cleanup() {
 	clReleaseMemObject(d_inData);
   if (d_outData) 
 	clReleaseMemObject(d_outData);
-#else
-  if (h_inData)
-    clSVMFree(context, h_inData);
-  if (h_outData)
-    clSVMFree(context, h_outData);
-#endif /* USE_SVM_API == 0 */
+
   if(context)
     clReleaseContext(context);
 }
