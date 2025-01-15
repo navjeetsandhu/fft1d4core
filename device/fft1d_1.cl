@@ -108,7 +108,7 @@ uint bit_reversed_1(uint x, uint bits) {
 #define B_END_1   (B_START_1 + LOGPOINTS_1 - 1)
 
 #define C_START_1 (B_END_1 + 1)
-#define C_END_1   (LOGN_1 - 1)
+#define C_END_1   (LOGN - 1)
 
 #define D_START_1 (C_END_1 + 1)
 #define D_END_1   31
