@@ -336,7 +336,7 @@ kernel void fetch (global float2 * restrict src) {
  * 'inverse' toggles between the direct and the inverse transform
  */
 
-kernel void fft1d_2(global float2 * restrict dest,
+kernel void fft1d(global float2 * restrict dest,
                   int count, int inverse) {
 
   const int N = (1 << LOGN);
