@@ -44,29 +44,29 @@
  */
 
 // Include source code for an engine that produces 8 points each step
-#include "fft_8.cl" 
+#include "fft_8_1.cl"
 
 #pragma OPENCL EXTENSION cl_intel_channels : enable
 
 #include "../host/inc/fft_config.h"
 
-#define min(a,b) (a<b?a:b)
+#define min_1(a,b) (a<b?a:b)
 
-#define LOGPOINTS       3
-#define POINTS          (1 << LOGPOINTS)
-#define NUM_FETCHES     (1 << (LOGN - LOGPOINTS))
+#define LOGPOINTS_1       3
+#define POINTS_1          (1 << LOGPOINTS_1)
+#define NUM_FETCHES_1     (1 << (LOGN - LOGPOINTS_1))
 
 // Log of how much to fetch at once for one area of input buffer.
 // LOG_CONT_FACTOR_LIMIT computation makes sure that C_LEN below
 // is non-negative. Keep it bounded by 6, as going larger will waste
 // on-chip resources but won't give performance gains.
-#define LOG_CONT_FACTOR_LIMIT1 (LOGN - (2 * (LOGPOINTS)))
-#define LOG_CONT_FACTOR_LIMIT2 (((LOG_CONT_FACTOR_LIMIT1) >= 0) ? (LOG_CONT_FACTOR_LIMIT1) : 0)
-#define LOG_CONT_FACTOR        (((LOG_CONT_FACTOR_LIMIT2) <= 6) ? (LOG_CONT_FACTOR_LIMIT1) : 6)
-#define CONT_FACTOR            (1 << LOG_CONT_FACTOR)
+#define LOG_CONT_FACTOR_LIMIT1_1 (LOGN - (2 * (LOGPOINTS_1)))
+#define LOG_CONT_FACTOR_LIMIT2_1 (((LOG_CONT_FACTOR_LIMIT1_1) >= 0) ? (LOG_CONT_FACTOR_LIMIT1_1) : 0)
+#define LOG_CONT_FACTOR_1        (((LOG_CONT_FACTOR_LIMIT2_1) <= 6) ? (LOG_CONT_FACTOR_LIMIT1_1) : 6)
+#define CONT_FACTOR_1            (1 << LOG_CONT_FACTOR_1)
 
 // Need some depth to our channels to accommodate their bursty filling.
-channel float2 chanin[8] __attribute__((depth(CONT_FACTOR*8)));
+channel float2 chanin_1[8] __attribute__((depth(CONT_FACTOR_1*8)));
 
 uint bit_reversed(uint x, uint bits) {
   uint y = 0;
@@ -101,25 +101,25 @@ uint bit_reversed(uint x, uint bits) {
 
 // INPUT GID POINTS
 // C_LEN must be at least 0. Can't be negative.
-#define A_START 0
-#define A_END   (LOG_CONT_FACTOR + LOGPOINTS - 1)
+#define A_START_1 0
+#define A_END_1   (LOG_CONT_FACTOR_1 + LOGPOINTS_1 - 1)
 
-#define B_START (A_END + 1)
-#define B_END   (B_START + LOGPOINTS - 1)
+#define B_START_1 (A_END_1 + 1)
+#define B_END_1   (B_START_1 + LOGPOINTS_1 - 1)
 
-#define C_START (B_END + 1)
-#define C_END   (LOGN - 1)
+#define C_START_1 (B_END_1 + 1)
+#define C_END_1   (LOGN_1 - 1)
 
-#define D_START (C_END + 1)
-#define D_END   31
+#define D_START_1 (C_END_1 + 1)
+#define D_END_1   31
 
-#define A_LEN   (A_END - A_START + 1)
-#define B_LEN   (B_END - B_START + 1)
-#define C_LEN   (C_END - C_START + 1)
-#define D_LEN   (D_END - D_START + 1)
-#define EXTRACT(id,start,len) ((id >> start) & ((1 << len) - 1))
+#define A_LEN_1   (A_END_1 - A_START_1 + 1)
+#define B_LEN_1   (B_END_1 - B_START_1 + 1)
+#define C_LEN_1   (C_END_1 - C_START_1 + 1)
+#define D_LEN_1   (D_END_1 - D_START_1 + 1)
+#define EXTRACT_1(id,start,len) ((id >> start) & ((1 << len) - 1))
 
-uint permute_gid (uint gid) {
+uint permute_gid_1 (uint gid) {
   uint result = 0;
   // result[31:16]= gid[31:16] = D
   // result[15:13] = gid[10:8] = C
@@ -132,42 +132,42 @@ uint permute_gid (uint gid) {
   uint D = EXTRACT(gid, D_START, D_LEN);
     
   // swap B and C
-  uint new_c_start = A_END + 1;
-  uint new_b_start = new_c_start + C_LEN;
-  result = (D << D_START) | (B << new_b_start) | (C << new_c_start) | (A << A_START);
+  uint new_c_start = A_END_1 + 1;
+  uint new_b_start = new_c_start + C_LEN_1;
+  result = (D << D_START) | (B << new_b_start) | (C << new_c_start) | (A << A_START_1);
   return result;
 }
 
 // group dimension (N/(8*CONT_FACTOR), num_iterations)
-__attribute__((reqd_work_group_size(CONT_FACTOR * POINTS, 1, 1)))
+__attribute__((reqd_work_group_size(CONT_FACTOR * POINTS_1, 1, 1)))
 kernel void fetch (global float2 * restrict src) {
 
   const int N = (1 << LOGN);
   // Each thread will fetch POINTS points. Need POINTS times to pass to FFT.
-  const int BUF_SIZE = 1 << (LOG_CONT_FACTOR + LOGPOINTS + LOGPOINTS);
+  const int BUF_SIZE_1 = 1 << (LOG_CONT_FACTOR_1 + LOGPOINTS_1 + LOGPOINTS_1);
 
   // Local memory for CONT_FACTOR * POINTS points
-  local float2 buf[BUF_SIZE];
+  local float2 buf_1[BUF_SIZE];
 
   uint iteration = get_global_id(1);
   uint group_per_iter = get_global_id(0);
   
   // permute global addr but not the local addr
   uint global_addr = iteration * N + group_per_iter;
-  global_addr = permute_gid (global_addr << LOGPOINTS);
+  global_addr = permute_gid (global_addr << LOGPOINTS_1);
   uint lid = get_local_id(0);
-  uint local_addr = lid << LOGPOINTS;
+  uint local_addr_1 = lid << LOGPOINTS_1;
 
   #pragma unroll
-  for (uint k = 0; k < POINTS; k++) {
+  for (uint k = 0; k < POINTS_1; k++) {
     buf[local_addr + k] = src[global_addr + k];
   }
 
   barrier (CLK_LOCAL_MEM_FENCE);
 
   #pragma unroll
-  for (uint k = 0; k < POINTS; k++) {
-    uint buf_addr = bit_reversed(k,3) * CONT_FACTOR * POINTS + lid;
+  for (uint k = 0; k < POINTS_1; k++) {
+    uint buf_addr = bit_reversed(k,3) * CONT_FACTOR * POINTS_1 + lid;
     write_channel_intel (chanin[k], buf[buf_addr]);
   }
 }
@@ -179,7 +179,7 @@ kernel void fetch (global float2 * restrict src) {
  * 'inverse' toggles between the direct and the inverse transform
  */
 
-kernel void fft1d(global float2 * restrict dest,
+kernel void fft1d_1(global float2 * restrict dest,
                   int count, int inverse) {
 
   const int N = (1 << LOGN);
@@ -230,7 +230,7 @@ kernel void fft1d(global float2 * restrict dest,
     }
 
     // Perform one step of the FFT engine
-    data = fft_step(data, i % (N / 8), fft_delay_elements, inverse, LOGN); 
+    data = fft_step_1(data, i % (N / 8), fft_delay_elements, inverse, LOGN);
 
     /* Store data back to memory. FFT engine outputs are delayed by 
      * N / 8 - 1 steps, hence gate writes accordingly

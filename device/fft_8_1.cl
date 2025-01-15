@@ -42,7 +42,7 @@
 
 // Includes tabled twiddle factors - storing constants uses fewer resources
 // than instantiating 'cos' or 'sin' hardware
-#include "twid_radix4_8.cl" 
+#include "twid_radix4_8_1.cl"
 
 // Convenience struct representing the 8 data points processed each step
 // Each member is a float2 representing a complex number
@@ -55,11 +55,11 @@ typedef struct {
    float2 i5;
    float2 i6;
    float2 i7;
-} float2x8;
+} float2x8_1;
 
 // FFT butterfly building block
-float2x8 butterfly(float2x8 data) {
-   float2x8 res;
+float2x8_1 butterfly_1(float2x8_1 data_1) {
+   float2x8_1 res;
    res.i0 = data.i0 + data.i1;
    res.i1 = data.i0 - data.i1;
    res.i2 = data.i2 + data.i3;
@@ -72,8 +72,8 @@ float2x8 butterfly(float2x8 data) {
 }
 
 // Swap real and imaginary components in preparation for inverse transform
-float2x8 swap_complex(float2x8 data) {
-   float2x8 res;
+float2x8_1 swap_complex_1(float2x8_1 data) {
+   float2x8_1 res;
    res.i0.x = data.i0.y;
    res.i0.y = data.i0.x;
    res.i1.x = data.i1.y;
@@ -94,7 +94,7 @@ float2x8 swap_complex(float2x8 data) {
 }
 
 // FFT trivial rotation building block
-float2x8 trivial_rotate(float2x8 data) {
+float2x8_1 trivial_rotate_1(float2x8_1 data) {
    float2 tmp = data.i3;
    data.i3.x = tmp.y;
    data.i3.y = -tmp.x;
@@ -105,7 +105,7 @@ float2x8 trivial_rotate(float2x8 data) {
 }
 
 // FFT data swap building block associated with trivial rotations
-float2x8 trivial_swap(float2x8 data) {
+float2x8_1 trivial_swap_1(float2x8_1 data) {
    float2 tmp = data.i1;
    data.i1 = data.i2;
    data.i2 = tmp;
@@ -116,7 +116,7 @@ float2x8 trivial_swap(float2x8 data) {
 }
 
 // FFT data swap building block associated with complex rotations
-float2x8 swap(float2x8 data) {
+float2x8_1 swap_1(float2x8_1 data) {
    float2 tmp = data.i1;
    data.i1 = data.i4;
    float2 tmp2 = data.i2;
@@ -132,7 +132,7 @@ float2x8 swap(float2x8 data) {
 // This function "delays" the input by 'depth' steps
 // Input 'data' from invocation N would be returned in invocation N + depth
 // The 'shift_reg' sliding window is shifted by 1 element at every invocation 
-float2 delay(float2 data, const int depth, float2 *shift_reg) {
+float2 delay_1(float2 data, const int depth, float2 *shift_reg) {
    shift_reg[depth] = data;
    return shift_reg[0];
 }
@@ -143,14 +143,14 @@ float2 delay(float2 data, const int depth, float2 *shift_reg) {
 // data.i0         : GECA...   ---->      DBCA...
 // data.i1         : HFDB...   ---->      HFGE...
 
-float2x8 reorder_data(float2x8 data, const int depth, float2 * shift_reg, bool toggle) {
+float2x8_1 reorder_data_1(float2x8_1 data, const int depth, float2 * shift_reg, bool toggle) {
    // Use disconnected segments of length 'depth + 1' elements starting at 
    // 'shift_reg' to implement the delay elements. At the end of each FFT step, 
    // the contents of the entire buffer is shifted by 1 element
-   data.i1 = delay(data.i1, depth, shift_reg);
-   data.i3 = delay(data.i3, depth, shift_reg + depth + 1);
-   data.i5 = delay(data.i5, depth, shift_reg + 2 * (depth + 1));
-   data.i7 = delay(data.i7, depth, shift_reg + 3 * (depth + 1));
+   data.i1 = delay_1(data.i1, depth, shift_reg);
+   data.i3 = delay_1(data.i3, depth, shift_reg + depth + 1);
+   data.i5 = delay_1(data.i5, depth, shift_reg + 2 * (depth + 1));
+   data.i7 = delay_1(data.i7, depth, shift_reg + 3 * (depth + 1));
  
    if (toggle) {
       float2 tmp = data.i0;
@@ -167,16 +167,16 @@ float2x8 reorder_data(float2x8 data, const int depth, float2 * shift_reg, bool t
       data.i7 = tmp;
    }
 
-   data.i0 = delay(data.i0, depth, shift_reg + 4 * (depth + 1));
-   data.i2 = delay(data.i2, depth, shift_reg + 5 * (depth + 1));
-   data.i4 = delay(data.i4, depth, shift_reg + 6 * (depth + 1));
-   data.i6 = delay(data.i6, depth, shift_reg + 7 * (depth + 1));
+   data.i0 = delay_1(data.i0, depth, shift_reg + 4 * (depth + 1));
+   data.i2 = delay_1(data.i2, depth, shift_reg + 5 * (depth + 1));
+   data.i4 = delay_1(data.i4, depth, shift_reg + 6 * (depth + 1));
+   data.i6 = delay_1(data.i6, depth, shift_reg + 7 * (depth + 1));
 
    return data;
 }
 
 // Implements a complex number multiplication
-float2 comp_mult(float2 a, float2 b) {
+float2 comp_mult_1(float2 a, float2 b) {
    float2 res;
    res.x = a.x * b.x - a.y * b.y;
    res.y = a.x * b.y + a.y * b.x;
@@ -190,31 +190,31 @@ float2 comp_mult(float2 a, float2 b) {
 // This saves hardware resources, because it avoids evaluating 'cos' and 'sin'
 // functions
 
-float2 twiddle(int index, int stage, int size, int stream) {
+float2 twiddle_1(int index, int stage, int size, int stream) {
    float2 twid;
    // Coalesces the twiddle tables for indexed access
-   constant float * twiddles_cos[TWID_STAGES][6] = {
-                        {tc00, tc01, tc02, tc03, tc04, tc05}, 
-                        {tc10, tc11, tc12, tc13, tc14, tc15}, 
-                        {tc20, tc21, tc22, tc23, tc24, tc25}, 
-                        {tc30, tc31, tc32, tc33, tc34, tc35}, 
-                        {tc40, tc41, tc42, tc43, tc44, tc45}
+   constant float * twiddles_cos_1[TWID_STAGES_1][6] = {
+                        {tc00_1, tc01_1, tc02_1, tc03_1, tc04_1, tc05_1},
+                        {tc10_1, tc11_1, tc12_1, tc13_1, tc14_1, tc15_1},
+                        {tc20_1, tc21_1, tc22_1, tc23_1, tc24_1, tc25_1},
+                        {tc30_1, tc31_1, tc32_1, tc33_1, tc34_1, tc35_1},
+                        {tc40_1, tc41_1, tc42_1, tc43_1, tc44_1, tc45_1}
    };
-   constant float * twiddles_sin[TWID_STAGES][6] = {
-                        {ts00, ts01, ts02, ts03, ts04, ts05}, 
-                        {ts10, ts11, ts12, ts13, ts14, ts15}, 
-                        {ts20, ts21, ts22, ts23, ts24, ts25}, 
-                        {ts30, ts31, ts32, ts33, ts34, ts35}, 
-                        {ts40, ts41, ts42, ts43, ts44, ts45}
+   constant float * twiddles_sin_1[TWID_STAGES_1][6] = {
+                        {ts00_1, ts01_1, ts02_1, ts03_1, ts04_1, ts05_1},
+                        {ts10_1, ts11_1, ts12_1, ts13_1, ts14_1, ts15_1},
+                        {ts20_1, ts21_1, ts22_1, ts23_1, ts24_1, ts25_1},
+                        {ts30_1, ts31_1, ts32_1, ts33_1, ts34_1, ts35_1},
+                        {ts40_1, ts41_1, ts42_1, ts43_1, ts44_1, ts45_1}
    };
 
    // Use the precomputed twiddle factors, if available - otherwise, compute them
    int twid_stage = stage >> 1;
-   if (size <= (1 << (TWID_STAGES * 2 + 2))) {
-      twid.x = twiddles_cos[twid_stage][stream]
-                                  [index * ((1 << (TWID_STAGES * 2 + 2)) / size)];
-      twid.y = twiddles_sin[twid_stage][stream]
-                                  [index * ((1 << (TWID_STAGES * 2 + 2)) / size)];
+   if (size <= (1 << (TWID_STAGES_1 * 2 + 2))) {
+      twid.x = twiddles_cos_1[twid_stage][stream]
+                                  [index * ((1 << (TWID_STAGES_1 * 2 + 2)) / size)];
+      twid.y = twiddles_sin_1[twid_stage][stream]
+                                  [index * ((1 << (TWID_STAGES_1 * 2 + 2)) / size)];
    } else {
       // This would generate hardware consuming a large number of resources
       // Instantiated only if precomputed twiddle factors are available
@@ -245,13 +245,13 @@ float2 twiddle(int index, int stage, int size, int stream) {
 }
 
 // FFT complex rotation building block
-float2x8 complex_rotate(float2x8 data, int index, int stage, int size) {
-   data.i1 = comp_mult(data.i1, twiddle(index, stage, size, 0));
-   data.i2 = comp_mult(data.i2, twiddle(index, stage, size, 1));
-   data.i3 = comp_mult(data.i3, twiddle(index, stage, size, 2));
-   data.i5 = comp_mult(data.i5, twiddle(index, stage, size, 3));
-   data.i6 = comp_mult(data.i6, twiddle(index, stage, size, 4));
-   data.i7 = comp_mult(data.i7, twiddle(index, stage, size, 5));
+float2x8_1 complex_rotate_1(float2x8_1 data, int index, int stage, int size) {
+   data.i1 = comp_mult_1(data.i1, twiddle_1(index, stage, size, 0));
+   data.i2 = comp_mult_1(data.i2, twiddle_1(index, stage, size, 1));
+   data.i3 = comp_mult_1(data.i3, twiddle_1(index, stage, size, 2));
+   data.i5 = comp_mult_1(data.i5, twiddle_1(index, stage, size, 3));
+   data.i6 = comp_mult_1(data.i6, twiddle_1(index, stage, size, 4));
+   data.i7 = comp_mult_1(data.i7, twiddle_1(index, stage, size, 5));
    return data;
 }
 
@@ -269,23 +269,23 @@ float2x8 complex_rotate(float2x8 data, int index, int stage, int size) {
 // 'logN' should be a COMPILE TIME constant evaluating log(N) - the constant is 
 //        propagated throughout the code to achieve efficient hardware
 //
-float2x8 fft_step(float2x8 data, int step, float2 *fft_delay_elements, 
+float2x8_1 fft_step_1(float2x8_1 data, int step, float2 *fft_delay_elements,
                   bool inverse, const int logN) {
     const int size = 1 << logN;
     // Swap real and imaginary components if doing an inverse transform
     if (inverse) {
-       data = swap_complex(data);
+       data = swap_complex_1(data);
     }
 
     // Stage 0 of feed-forward FFT
-    data = butterfly(data);
-    data = trivial_rotate(data);
-    data = trivial_swap(data);
+    data = butterfly_1(data);
+    data = trivial_rotate_1(data);
+    data = trivial_swap_1(data);
     
     // Stage 1
-    data = butterfly(data);
-    data = complex_rotate(data, step & (size / 8 - 1), 1, size);
-    data = swap(data);
+    data = butterfly_1(data);
+    data = complex_rotate_1(data, step & (size / 8 - 1), 1, size);
+    data = swap_1(data);
 
     // Next logN - 2 stages alternate two computation patterns - represented as
     // a loop to avoid code duplication. Instruct the compiler to fully unroll 
@@ -301,13 +301,13 @@ float2x8 fft_step(float2x8 data, int step, float2 *fft_delay_elements,
         // from one stage to the next
         int data_index = (step + ( 1 << (logN - 1 - stage))) & (size / 8 - 1);
 
-        data = butterfly(data);
+        data = butterfly_1(data);
 
         if (complex_stage) {
-            data = complex_rotate(data, data_index, stage, size);
+            data = complex_rotate_1(data, data_index, stage, size);
         }
 
-        data = swap(data);
+        data = swap_1(data);
 
         // Compute the delay of this stage
         int delay = 1 << (logN - 2 - stage);
@@ -319,15 +319,15 @@ float2x8 fft_step(float2x8 data, int step, float2 *fft_delay_elements,
         // each stage
         float2 *head_buffer = fft_delay_elements + 
                               size - (1 << (logN - stage + 2)) + 8 * (stage - 2);
-        data = reorder_data(data, delay, head_buffer, toggle);
+        data = reorder_data_1(data, delay, head_buffer, toggle);
 
         if (!complex_stage) {
-            data = trivial_rotate(data);
+            data = trivial_rotate_1(data);
         }
     }
 
     // Stage logN - 1
-    data = butterfly(data);
+    data = butterfly_1(data);
 
     // Shift the contents of the sliding window. The hardware is capable of 
     // shifting the entire contents in parallel if the loop is unrolled. More
@@ -339,7 +339,7 @@ float2x8 fft_step(float2x8 data, int step, float2 *fft_delay_elements,
     }
 
     if (inverse) {
-       data = swap_complex(data);
+       data = swap_complex_1(data);
     }
 
     return data;

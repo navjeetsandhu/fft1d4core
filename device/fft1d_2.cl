@@ -44,7 +44,7 @@
  */
 
 // Include source code for an engine that produces 8 points each step
-#include "fft_8.cl" 
+#include "fft_8_2.cl"
 
 #pragma OPENCL EXTENSION cl_intel_channels : enable
 
@@ -179,7 +179,7 @@ kernel void fetch (global float2 * restrict src) {
  * 'inverse' toggles between the direct and the inverse transform
  */
 
-kernel void fft1d(global float2 * restrict dest,
+kernel void fft1d_2(global float2 * restrict dest,
                   int count, int inverse) {
 
   const int N = (1 << LOGN);
@@ -230,7 +230,7 @@ kernel void fft1d(global float2 * restrict dest,
     }
 
     // Perform one step of the FFT engine
-    data = fft_step(data, i % (N / 8), fft_delay_elements, inverse, LOGN); 
+    data = fft_step(data, i % (N / 8), fft_delay_elements, inverse, LOGN);
 
     /* Store data back to memory. FFT engine outputs are delayed by 
      * N / 8 - 1 steps, hence gate writes accordingly
