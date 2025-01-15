@@ -126,10 +126,10 @@ uint permute_gid_1 (uint gid) {
   // result_1[12:8]  = gid[15:11] = B_1
   // result_1[7:0]  = gid[10:0] = A_1
 
-  uint A_1 = EXTRACT(gid, A_START_1, A_LEN_1);
-  uint B_1 = EXTRACT(gid, B_START_1, B_LEN_1);
-  uint C_1 = EXTRACT(gid, C_START_1, C_LEN_1);
-  uint D_1 = EXTRACT(gid, D_START_1, D_LEN_1);
+  uint A_1 = EXTRACT_1(gid, A_START_1, A_LEN_1);
+  uint B_1 = EXTRACT_1(gid, B_START_1, B_LEN_1);
+  uint C_1 = EXTRACT_1(gid, C_START_1, C_LEN_1);
+  uint D_1 = EXTRACT_1(gid, D_START_1, D_LEN_1);
     
   // swap B and C
   uint new_c_start_1 = A_END_1 + 1;
