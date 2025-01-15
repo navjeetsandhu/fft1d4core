@@ -140,7 +140,7 @@ uint permute_gid_1 (uint gid) {
 
 // group dimension (N/(8*CONT_FACTOR), num_iterations)
 __attribute__((reqd_work_group_size(CONT_FACTOR_1 * POINTS_1, 1, 1)))
-kernel void fetch (global float2 * restrict src) {
+kernel void fetch_1 (global float2 * restrict src) {
 
   const int N = (1 << LOGN);
   // Each thread will fetch POINTS points. Need POINTS times to pass to FFT.
