@@ -139,7 +139,7 @@ uint permute_gid_1 (uint gid) {
 }
 
 // group dimension (N/(8*CONT_FACTOR), num_iterations)
-__attribute__((reqd_work_group_size(CONT_FACTOR * POINTS_1, 1, 1)))
+__attribute__((reqd_work_group_size(CONT_FACTOR_1 * POINTS_1, 1, 1)))
 kernel void fetch (global float2 * restrict src) {
 
   const int N = (1 << LOGN);
@@ -147,7 +147,7 @@ kernel void fetch (global float2 * restrict src) {
   const int BUF_SIZE_1 = 1 << (LOG_CONT_FACTOR_1 + LOGPOINTS_1 + LOGPOINTS_1);
 
   // Local memory for CONT_FACTOR * POINTS points
-  local float2 buf_1[BUF_SIZE];
+  local float2 buf_1[BUF_SIZE_1];
 
   uint iteration = get_global_id(1);
   uint group_per_iter = get_global_id(0);
@@ -167,7 +167,7 @@ kernel void fetch (global float2 * restrict src) {
 
   #pragma unroll
   for (uint k = 0; k < POINTS_1; k++) {
-    uint buf_addr = bit_reversed_1(k,3) * CONT_FACTOR * POINTS_1 + lid;
+    uint buf_addr = bit_reversed_1(k,3) * CONT_FACTOR_1 * POINTS_1 + lid;
     write_channel_intel (chanin[k], buf[buf_addr]);
   }
 }
