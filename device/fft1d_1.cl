@@ -68,7 +68,7 @@
 // Need some depth to our channels to accommodate their bursty filling.
 channel float2 chanin_1[8] __attribute__((depth(CONT_FACTOR_1*8)));
 
-uint bit_reversed(uint x, uint bits) {
+uint bit_reversed_1(uint x, uint bits) {
   uint y = 0;
   #pragma unroll 
   for (uint i = 0; i < bits; i++) {
@@ -120,22 +120,22 @@ uint bit_reversed(uint x, uint bits) {
 #define EXTRACT_1(id,start,len) ((id >> start) & ((1 << len) - 1))
 
 uint permute_gid_1 (uint gid) {
-  uint result = 0;
-  // result[31:16]= gid[31:16] = D
-  // result[15:13] = gid[10:8] = C
-  // result[12:8]  = gid[15:11] = B
-  // result[7:0]  = gid[10:0] = A
+  uint result_1 = 0;
+  // result_1[31:16]= gid[31:16] = D_1
+  // result_1[15:13] = gid[10:8] = C_1
+  // result_1[12:8]  = gid[15:11] = B_1
+  // result_1[7:0]  = gid[10:0] = A_1
 
-  uint A = EXTRACT(gid, A_START, A_LEN);
-  uint B = EXTRACT(gid, B_START, B_LEN);
-  uint C = EXTRACT(gid, C_START, C_LEN);
-  uint D = EXTRACT(gid, D_START, D_LEN);
+  uint A_1 = EXTRACT(gid, A_START_1, A_LEN_1);
+  uint B_1 = EXTRACT(gid, B_START_1, B_LEN_1);
+  uint C_1 = EXTRACT(gid, C_START_1, C_LEN_1);
+  uint D_1 = EXTRACT(gid, D_START_1, D_LEN_1);
     
   // swap B and C
-  uint new_c_start = A_END_1 + 1;
-  uint new_b_start = new_c_start + C_LEN_1;
-  result = (D << D_START) | (B << new_b_start) | (C << new_c_start) | (A << A_START_1);
-  return result;
+  uint new_c_start_1 = A_END_1 + 1;
+  uint new_b_start_1 = new_c_start_1 + C_LEN_1;
+  result_1 = (D_1 << D_START_1) | (B_1 << new_b_start_1) | (C_1 << new_c_start_1) | (A_1 << A_START_1);
+  return result_1;
 }
 
 // group dimension (N/(8*CONT_FACTOR), num_iterations)
@@ -167,7 +167,7 @@ kernel void fetch (global float2 * restrict src) {
 
   #pragma unroll
   for (uint k = 0; k < POINTS_1; k++) {
-    uint buf_addr = bit_reversed(k,3) * CONT_FACTOR * POINTS_1 + lid;
+    uint buf_addr = bit_reversed_1(k,3) * CONT_FACTOR * POINTS_1 + lid;
     write_channel_intel (chanin[k], buf[buf_addr]);
   }
 }
