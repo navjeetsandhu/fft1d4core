@@ -58,7 +58,7 @@ typedef struct {
 } float2x8_1;
 
 // FFT butterfly building block
-float2x8_1 butterfly_1(float2x8_1 data_1) {
+float2x8_1 butterfly_1(float2x8_1 data) {
    float2x8_1 res;
    res.i0 = data.i0 + data.i1;
    res.i1 = data.i0 - data.i1;
