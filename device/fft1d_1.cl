@@ -154,13 +154,13 @@ kernel void fetch (global float2 * restrict src) {
   
   // permute global addr but not the local addr
   uint global_addr = iteration * N + group_per_iter;
-  global_addr = permute_gid (global_addr << LOGPOINTS_1);
+  global_addr = permute_gid_1 (global_addr << LOGPOINTS_1);
   uint lid = get_local_id(0);
   uint local_addr_1 = lid << LOGPOINTS_1;
 
   #pragma unroll
   for (uint k = 0; k < POINTS_1; k++) {
-    buf[local_addr + k] = src[global_addr + k];
+    buf_1[local_addr + k] = src[global_addr + k];
   }
 
   barrier (CLK_LOCAL_MEM_FENCE);
@@ -168,7 +168,7 @@ kernel void fetch (global float2 * restrict src) {
   #pragma unroll
   for (uint k = 0; k < POINTS_1; k++) {
     uint buf_addr = bit_reversed_1(k,3) * CONT_FACTOR_1 * POINTS_1 + lid;
-    write_channel_intel (chanin[k], buf[buf_addr]);
+    write_channel_intel (chanin[k], buf_1[buf_addr]);
   }
 }
 
@@ -213,7 +213,7 @@ kernel void fft1d_1(global float2 * restrict dest,
     int base = (i / (N / 8)) * N;
     int offset = i % (N / 8);
 
-    float2x8 data;
+    float2x8_1 data;
     // Perform memory transfers only when reading data in range
     if (i < count * (N / 8)) {
       data.i0 = read_channel_intel(chanin[0]);
