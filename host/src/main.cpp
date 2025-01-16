@@ -120,7 +120,7 @@ static void fourier_stage(int lognr_points, double2 * data);
 
 
 // Host memory buffers
-float2 *h_inData, *h_outData. *h_inData_1, *h_outData_1;
+float2 *h_inData, *h_outData, *h_inData_1, *h_outData_1;
 double2 *h_verify;
 
 // Device memory buffers
