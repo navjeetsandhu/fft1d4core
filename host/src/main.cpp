@@ -448,15 +448,15 @@ bool init() {
   queue = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &status);
   checkError(status, "Failed to create command queue");
 
-  queue_1 = clCreateCommandQueue(context, device_1, CL_QUEUE_PROFILING_ENABLE, &status);
+  queue_1 = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &status);
   checkError(status, "Failed to create command queue_1");
 
   queue1 = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &status);
   checkError(status, "Failed to create command queue1");
 
-  queue1_1 = clCreateCommandQueue(context, device_1, CL_QUEUE_PROFILING_ENABLE, &status);
+  queue1_1 = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &status);
   checkError(status, "Failed to create command queue1_1");
-  
+
   // Create the program.
   std::string binary_file = getBoardBinaryFile("fft1d", device);
   printf("Using AOCX: %s\n\n", binary_file.c_str());
