@@ -161,7 +161,7 @@ int main(int argc, char **argv) {
   h_inData_1 = (float2 *)alignedMalloc(sizeof(float2) * N * iterations);
   h_outData_1 = (float2 *)alignedMalloc(sizeof(float2) * N * iterations);
   h_verify = (double2 *)alignedMalloc(sizeof(double2) * N * iterations);
-  if (!(h_inData && h_outData && h_verify && h_outData_1)) {
+  if (!(h_inData && h_inData_1 && h_outData && h_verify && h_outData_1)) {
     printf("ERROR: Couldn't create host buffers\n");
     return false;
   }
@@ -201,8 +201,8 @@ void test_fft(int iterations, bool inverse) {
   // Initialize input and produce verification data
   for (int i = 0; i < iterations; i++) {
     for (int j = 0; j < N; j++) {
-      h_verify[coord(i, j)].x = h_inData[coord(i, j)].x  = (float)((double)rand() / (double)RAND_MAX);
-      h_verify[coord(i, j)].y = h_inData[coord(i, j)].y   = (float)((double)rand() / (double)RAND_MAX);
+      h_verify[coord(i, j)].x = h_inData[coord(i, j)].x  = h_inData_1[coord(i, j)].x = (float)((double)rand() / (double)RAND_MAX);
+      h_verify[coord(i, j)].y = h_inData[coord(i, j)].y  = h_inData_1[coord(i, j)].y = (float)((double)rand() / (double)RAND_MAX);
     }
   }
 
@@ -226,7 +226,7 @@ void test_fft(int iterations, bool inverse) {
   status = clEnqueueWriteBuffer(queue1, d_inData, CL_TRUE, 0, sizeof(float2) * N * iterations, h_inData, 0, NULL, NULL);
   checkError(status, "Failed to copy data to device");
 
-  status = clEnqueueWriteBuffer(queue1_1, d_inData_1, CL_TRUE, 0, sizeof(float2) * N * iterations, h_inData, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue1_1, d_inData_1, CL_TRUE, 0, sizeof(float2) * N * iterations, h_inData_1, 0, NULL, NULL);
   checkError(status, "Failed to copy data to device with queue_1");
 
   // Can't pass bool to device, so convert it to int
@@ -482,26 +482,58 @@ bool init() {
 // Free the resources allocated during initialization
 void cleanup() {
   if(kernel) 
-    clReleaseKernel(kernel);  
-  if(kernel1) 
-    clReleaseKernel(kernel1);  
-  if(program) 
+    clReleaseKernel(kernel);
+
+  if(kernel_1)
+      clReleaseKernel(kernel_1);
+
+  if(kernel1)
+    clReleaseKernel(kernel1);
+
+  if(kernel1_1)
+      clReleaseKernel(kernel1_1);
+
+  if(program)
     clReleaseProgram(program);
+
   if(queue) 
     clReleaseCommandQueue(queue);
-  if(queue1) 
+
+  if(queue_1)
+      clReleaseCommandQueue(queue_1);
+
+  if(queue1)
     clReleaseCommandQueue(queue1);
+
+  if(queue1_1)
+      clReleaseCommandQueue(queue1_1);
+
   if (h_verify)
 	alignedFree(h_verify);
 
   if(h_inData)
 	alignedFree(h_inData);
+
+  if(h_inData_1)
+        alignedFree(h_inData_1);
+
   if (h_outData)
 	alignedFree(h_outData);
+
+  if (h_outData_1)
+        alignedFree(h_outData_1);
+
   if (d_inData)
 	clReleaseMemObject(d_inData);
+
+  if (d_inData_1)
+        clReleaseMemObject(d_inData_1);
+
   if (d_outData) 
 	clReleaseMemObject(d_outData);
+
+  if (d_outData_1)
+      clReleaseMemObject(d_outData_1);
 
   if(context)
     clReleaseContext(context);
