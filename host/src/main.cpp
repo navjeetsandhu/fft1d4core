@@ -250,7 +250,7 @@ void test_fft(int iterations, bool inverse) {
   checkError(status, "Failed to set kernel arg 1");
 
   status = clSetKernelArg(kernel_1, 1, sizeof(cl_int), (void*)&iterations);
-  checkError(status, "Failed to set kernel_1 arg 1")
+  checkError(status, "Failed to set kernel_1 arg 1");
 
   status = clSetKernelArg(kernel, 2, sizeof(cl_int), (void*)&inverse_int);
   checkError(status, "Failed to set kernel arg 2");
