@@ -161,7 +161,7 @@ int main(int argc, char **argv) {
   h_inData_1 = (float2 *)alignedMalloc(sizeof(float2) * N * iterations);
   h_outData_1 = (float2 *)alignedMalloc(sizeof(float2) * N * iterations);
   h_verify = (double2 *)alignedMalloc(sizeof(double2) * N * iterations);
-  if (!(h_inData && h_outData && h_verify && h_inData_1 && h_outData_1)) {
+  if (!(h_inData && h_outData && h_verify && h_outData_1)) {
     printf("ERROR: Couldn't create host buffers\n");
     return false;
   }
@@ -201,8 +201,8 @@ void test_fft(int iterations, bool inverse) {
   // Initialize input and produce verification data
   for (int i = 0; i < iterations; i++) {
     for (int j = 0; j < N; j++) {
-      h_verify[coord(i, j)].x = h_inData[coord(i, j)].x = (float)((double)rand() / (double)RAND_MAX);
-      h_verify[coord(i, j)].y = h_inData[coord(i, j)].y = (float)((double)rand() / (double)RAND_MAX);
+      h_verify[coord(i, j)].x = h_inData[coord(i, j)].x  = (float)((double)rand() / (double)RAND_MAX);
+      h_verify[coord(i, j)].y = h_inData[coord(i, j)].y   = (float)((double)rand() / (double)RAND_MAX);
     }
   }
 
@@ -227,7 +227,7 @@ void test_fft(int iterations, bool inverse) {
   checkError(status, "Failed to copy data to device");
 
   status = clEnqueueWriteBuffer(queue1_1, d_inData_1, CL_TRUE, 0, sizeof(float2) * N * iterations, h_inData, 0, NULL, NULL);
-  checkError(status, "Failed to copy data to device");
+  checkError(status, "Failed to copy data to device with queue_1");
 
   // Can't pass bool to device, so convert it to int
   int inverse_int = inverse;
@@ -271,26 +271,26 @@ void test_fft(int iterations, bool inverse) {
   checkError(status, "Failed to launch kernel");
 
   status = clEnqueueTask(queue_1, kernel_1, 0, NULL, NULL);
-  checkError(status, "Failed to launch kernel");
+  checkError(status, "Failed to launch kernel_1");
 
   size_t ls = N/8;
   size_t gs = iterations * ls;
   status = clEnqueueNDRangeKernel(queue1, kernel1, 1, NULL, &gs, &ls, 0, NULL, NULL);
-  checkError(status, "Failed to launch fetch kernel");
+  checkError(status, "Failed to launch fetch kernel1");
 
   status = clEnqueueNDRangeKernel(queue1_1, kernel1_1, 1, NULL, &gs, &ls, 0, NULL, NULL);
   checkError(status, "Failed to launch fetch kernel1_1");
 
   // Wait for command queue to complete pending events
   status = clFinish(queue);
-  checkError(status, "Failed to finish");
+  checkError(status, "Failed to finish queue");
   status = clFinish(queue1);
   checkError(status, "Failed to finish queue1");
 
   status = clFinish(queue_1);
-  checkError(status, "Failed to finish");
+  checkError(status, "Failed to finish queue_1");
   status = clFinish(queue1_1);
-  checkError(status, "Failed to finish queue1");
+  checkError(status, "Failed to finish queue1_1");
 
 
   // Record execution time
@@ -298,41 +298,48 @@ void test_fft(int iterations, bool inverse) {
 
   // Copy results from device to host
   status = clEnqueueReadBuffer(queue, d_outData, CL_TRUE, 0, sizeof(float2) * N * iterations, h_outData, 0, NULL, NULL);
-  checkError(status, "Failed to copy data from device");
+  checkError(status, "Failed to copy data from device queue");
 
-  status = clEnqueueReadBuffer(queue_1, d_outData_1, CL_TRUE, 0, sizeof(float2) * N * iterations, h_outData, 0, NULL, NULL);
-  checkError(status, "Failed to copy data from device");
+  status = clEnqueueReadBuffer(queue_1, d_outData_1, CL_TRUE, 0, sizeof(float2) * N * iterations, h_outData_1, 0, NULL, NULL);
+  checkError(status, "Failed to copy data from device queue_1");
 
   double time = td.start_fft - td.end_fft;
-  //printf("\tProcessing time = %.4fms\n", (float)((time) * 1E3));
-  //double gpoints_per_sec = ((double) iterations * N / time) * 1E-9;
-  //double gflops = 5 * N * (log((float)N)/log((float)2))/(time / iterations * 1E9);
-  //printf("\tThroughput = %.4f Gpoints / sec (%.4f Gflops)\n", gpoints_per_sec, gflops);
 
   // Pick randomly a few iterations and check SNR
   td.start_verify = getCurrentTimestamp();
 
   double fpga_snr = 200;
+  double fpga_snr_1 = 200;
   for (int i = 0; i < iterations; i+= rand() % 20 + 1) {
     fourier_transform_gold(inverse, LOGN, h_verify + coord(i, 0));
     double mag_sum = 0;
     double noise_sum = 0;
+    double noise_sum_1 = 0;
     for (int j = 0; j < N; j++) {
       double magnitude = (double)h_verify[coord(i, j)].x * (double)h_verify[coord(i, j)].x +  
                               (double)h_verify[coord(i, j)].y * (double)h_verify[coord(i, j)].y;
+
       double noise = (h_verify[coord(i, j)].x - (double)h_outData[coord(i, j)].x) * (h_verify[coord(i, j)].x - (double)h_outData[coord(i, j)].x) +  
                           (h_verify[coord(i, j)].y - (double)h_outData[coord(i, j)].y) * (h_verify[coord(i, j)].y - (double)h_outData[coord(i, j)].y);
 
-      mag_sum += magnitude;
-      noise_sum += noise;
+      double noise_1 = (h_verify[coord(i, j)].x - (double)h_outData_1[coord(i, j)].x) * (h_verify[coord(i, j)].x - (double)h_outData_1[coord(i, j)].x) +
+                       (h_verify[coord(i, j)].y - (double)h_outData_1[coord(i, j)].y) * (h_verify[coord(i, j)].y - (double)h_outData_1[coord(i, j)].y);
+
+        mag_sum += magnitude;
+        noise_sum += noise;
+        noise_sum_1 += noise_1;
+
     }
     double db = 10 * log(mag_sum / noise_sum) / log(10.0);
     // find minimum SNR across all iterations
     if (db < fpga_snr) fpga_snr = db;
+    db = 10 * log(mag_sum / noise_sum_1) / log(10.0);
+    if (db < fpga_snr_1) fpga_snr_1 = db;
   }
   td.end_verify = getCurrentTimestamp();
 
-  printf("\tSignal to noise ratio on output sample: %f --> %s\n\n", fpga_snr, fpga_snr > 125 ? "PASSED" : "FAILED");
+  printf("\tSignal to noise ratio on output sample 0: %f --> %s\n\n", fpga_snr, fpga_snr > 125 ? "PASSED" : "FAILED");
+  printf("\tSignal to noise ratio on output sample 1: %f --> %s\n\n", fpga_snr_1, fpga_snr_1 > 125 ? "PASSED" : "FAILED");
 }
 
 
