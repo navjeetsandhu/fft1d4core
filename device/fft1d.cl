@@ -252,3 +252,75 @@ kernel void fft1d(global float2 * restrict dest,
   }
 }
 
+kernel void fft1d_2(global float2 * restrict dest,
+                  int count, int inverse) {
+
+  const int N = (1 << LOGN);
+
+  /* The FFT engine requires a sliding window array for data reordering; data
+   * stored in this array is carried across loop iterations and shifted by one
+   * element every iteration; all loop dependencies derived from the uses of
+   * this array are simple transfers between adjacent array elements
+   */
+
+  float2 fft_delay_elements[N + 8 * (LOGN - 2)];
+
+  /* This is the main loop. It runs 'count' back-to-back FFT transforms
+   * In addition to the 'count * (N / 8)' iterations, it runs 'N / 8 - 1'
+   * additional iterations to drain the last outputs
+   * (see comments attached to the FFT engine)
+   *
+   * The compiler leverages pipeline parallelism by overlapping the
+   * iterations of this loop - launching one iteration every clock cycle
+   */
+
+  for (unsigned i = 0; i < count * (N / 8) + N / 8 - 1; i++) {
+
+    /* As required by the FFT engine, gather input data from 8 distinct
+     * segments of the input buffer; for simplicity, this implementation
+     * does not attempt to coalesce memory accesses and this leads to
+     * higher resource utilization (see the fft2d example for advanced
+     * memory access techniques)
+     */
+
+    int base = (i / (N / 8)) * N;
+    int offset = i % (N / 8);
+
+    float2x8 data;
+    // Perform memory transfers only when reading data in range
+    if (i < count * (N / 8)) {
+      data.i0 = read_channel_intel(chanin[0]);
+      data.i1 = read_channel_intel(chanin[1]);
+      data.i2 = read_channel_intel(chanin[2]);
+      data.i3 = read_channel_intel(chanin[3]);
+      data.i4 = read_channel_intel(chanin[4]);
+      data.i5 = read_channel_intel(chanin[5]);
+      data.i6 = read_channel_intel(chanin[6]);
+      data.i7 = read_channel_intel(chanin[7]);
+    } else {
+      data.i0 = data.i1 = data.i2 = data.i3 =
+                data.i4 = data.i5 = data.i6 = data.i7 = 0;
+    }
+
+    // Perform one step of the FFT engine
+    data = fft_step(data, i % (N / 8), fft_delay_elements, inverse, LOGN);
+
+    /* Store data back to memory. FFT engine outputs are delayed by
+     * N / 8 - 1 steps, hence gate writes accordingly
+     */
+
+    if (i >= N / 8 - 1) {
+      int base = 8 * (i - (N / 8 - 1));
+
+      // These consecutive accesses will be coalesced by the compiler
+      dest[base] = data.i0;
+      dest[base + 1] = data.i1;
+      dest[base + 2] = data.i2;
+      dest[base + 3] = data.i3;
+      dest[base + 4] = data.i4;
+      dest[base + 5] = data.i5;
+      dest[base + 6] = data.i6;
+      dest[base + 7] = data.i7;
+    }
+  }
+}
