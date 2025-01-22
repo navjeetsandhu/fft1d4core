@@ -42,7 +42,7 @@
 
 // Includes tabled twiddle factors - storing constants uses fewer resources
 // than instantiating 'cos' or 'sin' hardware
-#include "twid_radix4_8_2.cl"
+#include "twid_radix4_8.cl" 
 
 // Convenience struct representing the 8 data points processed each step
 // Each member is a float2 representing a complex number
